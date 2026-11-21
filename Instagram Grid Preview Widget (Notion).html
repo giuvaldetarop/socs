@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Grid Preview Widget</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fafafa; color: #262626; padding: 12px; }
+  .widget { background: #fff; border: 1px solid #dbdbdb; border-radius: 12px; max-width: 470px; margin: 0 auto; overflow: hidden; }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #efefef; gap: 6px; flex-wrap: wrap; }
+  .toolbar .group { display: flex; gap: 6px; align-items: center; }
+  button { font: inherit; font-size: 13px; border: 1px solid #dbdbdb; background: #fff; border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+  button:hover { background: #f5f5f5; }
+  button.primary { background: #0095f6; color: #fff; border-color: #0095f6; }
+  button.primary:hover { background: #0081d6; }
+  button.ghost { border-color: transparent; }
+  .plan-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+  .switch { width: 34px; height: 18px; border-radius: 10px; background: #dbdbdb; position: relative; cursor: pointer; transition: .2s; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: .2s; }
+  .switch.on { background: #0095f6; }
+  .switch.on::after { left: 18px; }
+  .planbar { display: none; padding: 8px 12px; background: #e8f4fd; font-size: 13px; justify-content: space-between; align-items: center; gap: 8px; }
+  .planbar.show { display: flex; }
+  .profile { padding: 16px 16px 8px; }
+  .row { display: flex; align-items: center; gap: 20px; }
+  .avatar { width: 77px; height: 77px; border-radius: 50%; background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); padding: 3px; flex-shrink: 0; }
+  .avatar div { width: 100%; height: 100%; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: #dc2743; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .stats { display: flex; gap: 18px; font-size: 14px; }
+  .stats b { display: block; font-size: 16px; }
+  .username { font-weight: 600; font-size: 14px; margin-top: 10px; }
+  .bio { font-size: 13px; line-height: 1.4; margin-top: 4px; white-space: pre-line; }
+  .highlights { display: flex; gap: 14px; padding: 12px 16px; overflow-x: auto; }
+  .highlight { text-align: center; font-size: 11px; width: 60px; flex-shrink: 0; }
+  .highlight .ring { width: 60px; height: 60px; border-radius: 50%; border: 1px solid #dbdbdb; padding: 2px; margin: 0 auto 4px; background: linear-gradient(#fff,#fff) padding-box; }
+  .highlight .ring i { display: block; width: 100%; height: 100%; border-radius: 50%; background: #f0f0f0; }
+  .hidden { display: none !important; }
+  .nav { display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; border-top: 1px solid #efefef; border-bottom: 1px solid #efefef; font-size: 12px; color: #737373; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; }
+  .cell { position: relative; aspect-ratio: 4 / 5; cursor: pointer; overflow: hidden; background: #efefef; border-radius: 2px; }
+  .cell .art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 10px; text-align: center; color: #fff; font-weight: 700; font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .cell .badge { position: absolute; top: 6px; right: 6px; font-size: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 2px 6px; border-radius: 6px; }
+  .cell .pin { position: absolute; top: 6px; left: 6px; font-size: 11px; }
+  .cell.dragging { opacity: .4; }
+  .cell.dragover { outline: 2px dashed #0095f6; outline-offset: -2px; }
+  .plan-mode .cell { cursor: grab; }
+  .plan-mode .cell::after { content: "⠿"; position: absolute; bottom: 6px; right: 6px; color: #fff; background: rgba(0,0,0,.4); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 360px; padding: 16px; font-size: 14px; }
+  .modal h3 { font-size: 15px; margin-bottom: 4px; }
+  .modal .meta { color: #737373; font-size: 12px; margin-bottom: 10px; }
+  .modal p { line-height: 1.45; white-space: pre-line; margin-bottom: 12px; }
+  .modal label { font-size: 12px; color: #737373; display: block; margin-bottom: 4px; }
+  .modal input, .modal select, .modal textarea { width: 100%; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #dbdbdb; border-radius: 6px; margin-bottom: 10px; }
+  .modal .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .status { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-bottom: 8px; }
+  .s-approved { background: #d1f7d6; color: #17651f; }
+  .s-pending { background: #fff1c2; color: #7a5a00; }
+  .s-changes { background: #ffd9d6; color: #8a1d12; }
+  .s-draft { background: #e5e5e5; color: #444; }
+  .settings { padding: 12px; border-top: 1px solid #efefef; font-size: 13px; display: none; gap: 8px; flex-direction: column; }
+  .settings.show { display: flex; }
+  .settings input { font: inherit; padding: 6px 8px; border: 1px solid #dbdbdb; border-radius: 6px; }
+  .empty { grid-column: 1 / -1; text-align: center; padding: 30px; color: #737373; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="widget" id="widget">
+  <div class="toolbar">
+    <div class="plan-toggle">Plan
+      <div class="switch" id="planSwitch" title="Toggle plan mode (drag to reorder)"></div>
+    </div>
+    <div class="group">
+      <button id="refreshBtn" title="Reload from saved data">Refresh</button>
+      <button id="settingsBtn" class="ghost" title="Edit profile">⚙︎</button>
+    </div>
+  </div>
+
+  <div class="planbar" id="planbar">
+    <span>Drag posts to reorder the grid</span>
+    <span class="group" style="display:flex;gap:6px">
+      <button id="cancelPlan">Cancel</button>
+      <button id="savePlan" class="primary">Save</button>
+    </span>
+  </div>
+
+  <div class="settings" id="settings">
+    <label style="font-size:12px;color:#737373">Username</label>
+    <input id="inUser" placeholder="yourhandle">
+    <label style="font-size:12px;color:#737373">Bio (one line per row)</label>
+    <input id="inBio" placeholder="Your bio">
+    <label style="font-size:12px;color:#737373">Avatar image URL (optional)</label>
+    <input id="inAvatar" placeholder="https://...">
+    <div class="row" style="gap:12px;font-size:13px">
+      <label><input type="checkbox" id="chkBio" checked> Show bio</label>
+      <label><input type="checkbox" id="chkHl"> Show highlights</label>
+    </div>
+    <div><button id="saveSettings" class="primary">Save profile</button></div>
+  </div>
+
+  <div class="profile">
+    <div class="row">
+      <div class="avatar"><div id="avatarBox">IG</div></div>
+      <div class="stats">
+        <div><b id="statPosts">0</b>posts</div>
+        <div><b>1.2K</b>followers</div>
+        <div><b>310</b>following</div>
+      </div>
+    </div>
+    <div class="username" id="username">yourhandle</div>
+    <div class="bio" id="bioText">Your bio goes here ✨</div>
+  </div>
+
+  <div class="highlights hidden" id="highlights">
+    <div class="highlight"><div class="ring"><i></i></div>Start</div>
+    <div class="highlight"><div class="ring"><i></i></div>Tips</div>
+    <div class="highlight"><div class="ring"><i></i></div>Behind</div>
+    <div class="highlight"><div class="ring"><i></i></div>Clients</div>
+  </div>
+
+  <div class="nav">
+    <button class="ghost" id="prevBtn">❮</button>
+    <span id="pageLabel">Showing all posts</span>
+    <button class="ghost" id="nextBtn">❯</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+/* ===== 1. YOUR CONTENT — replace with your own posts ===== */
+const SAMPLE_POSTS = [
+  { id: 1,  title: "How I plan a month of content in 30 minutes", date: "2026-01-13", status: "approved", pinned: true,  color: ["#667eea","#764ba2"], caption: "Planning in batches saves hours. Here is my exact workflow.", category: "Educate" },
+  { id: 2,  title: "What changed after I used my own template", date: "2026-01-23", status: "pending",  pinned: true,  color: ["#f093fb","#f5576c"], caption: "Three months with a custom system. The results surprised me.", category: "Inspire" },
+  { id: 3,  title: "3 common mistakes when planning content", date: "2026-01-21", status: "draft",    pinned: false, color: ["#4facfe","#00f2fe"], caption: "Avoid these traps before you build your calendar.", category: "Entertain" },
+  { id: 4,  title: "Real talk: grow while working less", date: "2026-01-29", status: "changes",  pinned: false, color: ["#43e97b","#38f9d7"], caption: "Client feedback: make the hook shorter. Revised draft below.", category: "Proof" },
+  { id: 5,  title: "Behind the scenes of my studio", date: "2026-02-03", status: "approved", pinned: false, color: ["#fa709a","#fee140"], caption: "A peek at where the magic happens.", category: "Behind" },
+  { id: 6,  title: "Free Notion calendar template", date: "2026-02-08", status: "pending",  pinned: false, color: ["#30cfd0","#330867"], caption: "Download link in bio. Free for 48 hours.", category: "Offer" },
+  { id: 7,  title: "Client win: 4x engagement", date: "2026-02-12", status: "approved", pinned: false, color: ["#a18cd1","#fbc2eb"], caption: "Consistent posting plus a clear grid theme.", category: "Proof" },
+  { id: 8,  title: "Quick tip: batch your captions", date: "2026-02-17", status: "draft",    pinned: false, color: ["#ff9a9e","#fecfef"], caption: "Write five captions at once. Your future self will thank you.", category: "Educate" },
+  { id: 9,  title: "Monday motivation", date: "2026-02-22", status: "approved", pinned: false, color: ["#84fab0","#8fd3f4"], caption: "Small steps, every week.", category: "Inspire" }
+];
+const PROFILE_DEFAULT = { username: "yourhandle", bio: "Content planner for creators 📅\nHelping you post with intention", avatar: "", showBio: true, showHighlights: false };
+/* ======================================================== */
+
+const KEY = "ig-grid-widget-v1";
+const PAGE_SIZE = 9;
+let posts = [], profile = {}, savedOrder = null, planMode = false, draftOrder = null, page = 0;
+
+const STATUS = { approved: ["Approved","s-approved"], pending: ["Awaiting approval","s-pending"], changes: ["Changes requested","s-changes"], draft: ["Draft","s-draft"] };
+
+function load() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  profile = Object.assign({}, PROFILE_DEFAULT, data?.profile || {});
+  const byId = Object.fromEntries(SAMPLE_POSTS.map(p => [p.id, p]));
+  const saved = data?.posts || SAMPLE_POSTS.map(p => ({ ...p }));
+  posts = saved.map(p => ({ ...(byId[p.id] || {}), ...p }));
+  savedOrder = posts.map(p => p.id);
+}
+function persist() {
+  localStorage.setItem(KEY, JSON.stringify({ profile, posts }));
+}
+
+function currentList() {
+  const order = planMode && draftOrder ? draftOrder : (savedOrder || posts.map(p => p.id));
+  const map = Object.fromEntries(posts.map(p => [p.id, p]));
+  return order.map(id => map[id]).filter(Boolean);
+}
+
+function renderProfile() {
+  document.getElementById("username").textContent = profile.username;
+  document.getElementById("bioText").textContent = profile.bio;
+  document.getElementById("bioText").classList.toggle("hidden", !profile.showBio);
+  document.getElementById("highlights").classList.toggle("hidden", !profile.showHighlights);
+  const av = document.getElementById("avatarBox");
+  av.innerHTML = profile.avatar ? `<img src="${profile.avatar}" alt="">` : (profile.username.slice(0,2).toUpperCase() || "IG");
+  document.getElementById("statPosts").textContent = posts.length;
+}
+
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  grid.classList.toggle("plan-mode", planMode);
+  const list = currentList();
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  page = Math.min(page, pages - 1);
+  const visible = list.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  document.getElementById("pageLabel").textContent = `Page ${page + 1} of ${pages}`;
+  document.getElementById("prevBtn").disabled = page === 0;
+  document.getElementById("nextBtn").disabled = page >= pages - 1;
+  grid.innerHTML = "";
+  if (!visible.length) { grid.innerHTML = `<div class="empty">No posts yet. Add some in the data section of the script.</div>`; return; }
+  visible.forEach((p, i) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.draggable = planMode;
+    cell.dataset.id = p.id;
+    cell.style.background = `linear-gradient(135deg, ${p.color[0]}, ${p.color[1]})`;
+    cell.innerHTML = `
+      ${p.pinned ? '<span class="pin">📌</span>' : ""}
+      <div class="art">${escapeHtml(p.title)}</div>
+      ${p.status !== "approved" ? `<span class="badge">${STATUS[p.status][0]}</span>` : ""}`;
+    cell.addEventListener("click", () => { if (!planMode) openPost(p.id); });
+    if (planMode) attachDrag(cell);
+    grid.appendChild(cell);
+  });
+  renderProfileCount();
+}
+function renderProfileCount() {
+  document.getElementById("statPosts").textContent = posts.length;
+}
+
+/* ----- Plan mode: drag to reorder ----- */
+let dragId = null;
+function attachDrag(cell) {
+  cell.addEventListener("dragstart", e => { dragId = +cell.dataset.id; cell.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+  cell.addEventListener("dragend", () => { cell.classList.remove("dragging"); document.querySelectorAll(".dragover").forEach(c => c.classList.remove("dragover")); });
+  cell.addEventListener("dragover", e => { e.preventDefault(); cell.classList.add("dragover"); });
+  cell.addEventListener("dragleave", () => cell.classList.remove("dragover"));
+  cell.addEventListener("drop", e => {
+    e.preventDefault();
+    const targetId = +cell.dataset.id;
+    if (dragId == null || dragId === targetId) return;
+    const order = draftOrder.slice();
+    const from = order.indexOf(dragId), to = order.indexOf(targetId);
+    order.splice(from, 1);
+    order.splice(to, 0, dragId);
+    draftOrder = order;
+    dragId = null;
+    renderGrid();
+  });
+}
+function setPlanMode(on) {
+  planMode = on;
+  draftOrder = on ? (savedOrder || posts.map(p => p.id)).slice() : null;
+  document.getElementById("planSwitch").classList.toggle("on", on);
+  document.getElementById("planbar").classList.toggle("show", on);
+  renderGrid();
+}
+
+/* ----- Post detail + client approval ----- */
+function openPost(id) {
+  const p = posts.find(x => x.id === id);
+  const modal = document.getElementById("modal");
+  modal.innerHTML = `
+    <span class="status ${STATUS[p.status][1]}">${STATUS[p.status][0]}</span>
+    <h3>${escapeHtml(p.title)}</h3>
+    <div class="meta">${escapeHtml(p.category || "")} · ${p.date || "No date"}</div>
+    <p>${escapeHtml(p.caption || "")}</p>
+    <label>Approval status</label>
+    <select id="mStatus">
+      ${Object.entries(STATUS).map(([k,[label]]) => `<option value="${k}" ${k===p.status?"selected":""}>${label}</option>`).join("")}
+    </select>
+    <label>Pinned to top row</label>
+    <select id="mPin"><option value="no" ${p.pinned?"":"selected"}>No</option><option value="yes" ${p.pinned?"selected":""}>Yes</option></select>
+    <div class="actions">
+      <button id="mClose">Close</button>
+      <button class="primary" id="mSave">Save</button>
+    </div>`;
+  document.getElementById("modalBg").classList.add("show");
+  document.getElementById("mClose").onclick = closeModal;
+  document.getElementById("mSave").onclick = () => {
+    p.status = document.getElementById("mStatus").value;
+    p.pinned = document.getElementById("mPin").value === "yes";
+    persist(); renderGrid(); closeModal();
+  };
+}
+function closeModal() { document.getElementById("modalBg").classList.remove("show"); }
+document.getElementById("modalBg").addEventListener("click", e => { if (e.target.id === "modalBg") closeModal(); });
+
+/* ----- Controls ----- */
+document.getElementById("planSwitch").onclick = () => setPlanMode(!planMode);
+document.getElementById("cancelPlan").onclick = () => setPlanMode(false);
+document.getElementById("savePlan").onclick = () => {
+  savedOrder = draftOrder.slice();
+  persist();
+  setPlanMode(false);
+};
+document.getElementById("refreshBtn").onclick = () => { load(); setPlanMode(false); renderProfile(); renderGrid(); };
+document.getElementById("prevBtn").onclick = () => { page--; renderGrid(); };
+document.getElementById("nextBtn").onclick = () => { page++; renderGrid(); };
+
+document.getElementById("settingsBtn").onclick = () => document.getElementById("settings").classList.toggle("show");
+document.getElementById("saveSettings").onclick = () => {
+  profile.username = document.getElementById("inUser").value.trim() || PROFILE_DEFAULT.username;
+  profile.bio = document.getElementById("inBio").value || "";
+  profile.avatar = document.getElementById("inAvatar").value.trim();
+  profile.showBio = document.getElementById("chkBio").checked;
+  profile.showHighlights = document.getElementById("chkHl").checked;
+  persist(); renderProfile();
+  document.getElementById("settings").classList.remove("show");
+};
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ----- Init ----- */
+load();
+document.getElementById("inUser").value = profile.username;
+document.getElementById("inBio").value = profile.bio;
+document.getElementById("inAvatar").value = profile.avatar;
+document.getElementById("chkBio").checked = profile.showBio;
+document.getElementById("chkHl").checked = profile.showHighlights;
+renderProfile();
+renderGrid();
+</script>
+</body>
+</html>
